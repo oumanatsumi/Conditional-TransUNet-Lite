@@ -15,6 +15,7 @@ from networks.vit_seg_modeling import VisionTransformer as ViT_seg
 from networks.vit_seg_modeling import CONFIGS as CONFIGS_ViT_seg
 from torchsummary import summary
 
+
 parser = argparse.ArgumentParser()
 parser.add_argument('--volume_path', type=str,
                     default='../data/Synapse/test_vol_h5', help='root dir for validation volume data')  # for acdc volume_path=root_dir
@@ -117,11 +118,12 @@ if __name__ == "__main__":
     if args.vit_name.find('R50') !=-1:
         config_vit.patches.grid = (int(args.img_size/args.vit_patches_size), int(args.img_size/args.vit_patches_size))
     net = ViT_seg(config_vit, img_size=args.img_size, num_classes=config_vit.n_classes).cuda()
-    summary(net, (3, 224, 224))
+    # summary(net, (3, 224, 224))
     snapshot = os.path.join(snapshot_path, 'best_model.pth')
     if not os.path.exists(snapshot): snapshot = snapshot.replace('best_model', 'epoch_'+str(args.max_epochs-1))
     net.load_state_dict(torch.load(snapshot))
     snapshot_name = snapshot_path.split('/')[-1]
+
 
     log_folder = './test_log/test_log_' + args.exp
     os.makedirs(log_folder, exist_ok=True)

@@ -146,21 +146,27 @@ class Embeddings(nn.Module):
                                        out_channels=config.hidden_size,
                                        kernel_size=patch_size,
                                        stride=patch_size)
+        # 原版：position_embeddings初始化全是0
         self.position_embeddings = nn.Parameter(torch.zeros(1, n_patches, config.hidden_size))
-
+        # 新版，concat
+        # self.position_embeddings = nn.Parameter(torch.zeros(1, 1, config.hidden_size))
         self.dropout = Dropout(config.transformer["dropout_rate"])
 
 
     def forward(self, x):
         if self.hybrid:
             x, features = self.hybrid_model(x)
+            # 得到了经过ResNetV2提取特征后的图像，并且拷贝了一份三层的特征到features里，后面接着用
         else:
             features = None
         x = self.patch_embeddings(x)  # (B, hidden. n_patches^(1/2), n_patches^(1/2))
         x = x.flatten(2)
         x = x.transpose(-1, -2)  # (B, n_patches, hidden)
 
+        # 原版： ？？？这个相加等于没用position embedding。。
         embeddings = x + self.position_embeddings
+        # 新版
+        # embeddings = torch.cat([self.position_embeddings, x], dim=1)
         embeddings = self.dropout(embeddings)
         return embeddings, features
 
@@ -304,6 +310,14 @@ class DecoderBlock(nn.Module):
             padding=1,
             use_batchnorm=use_batchnorm,
         )
+
+        # self.conv3 = Conv2dReLU(
+        #     in_channels,
+        #     out_channels,
+        #     kernel_size=3,
+        #     padding=1,
+        #     use_batchnorm=use_batchnorm
+        # )
         self.up = nn.UpsamplingBilinear2d(scale_factor=2)
 
     def forward(self, x, skip=None):
@@ -312,6 +326,8 @@ class DecoderBlock(nn.Module):
             x = torch.cat([x, skip], dim=1)
         x = self.conv1(x)
         x = self.conv2(x)
+        # else:
+        #     x = self.conv3(x)
         return x
 
 
@@ -343,10 +359,10 @@ class DecoderCup(nn.Module):
             skip_channels = self.config.skip_channels
             for i in range(4-self.config.n_skip):  # re-select the skip channels according to n_skip
                 skip_channels[3-i]=0
-
         else:
             skip_channels=[0,0,0,0]
 
+        skip_channels[0] = 0
         blocks = [
             DecoderBlock(in_ch, out_ch, sk_ch) for in_ch, out_ch, sk_ch in zip(in_channels, out_channels, skip_channels)
         ]
@@ -363,6 +379,7 @@ class DecoderCup(nn.Module):
                 skip = features[i] if (i < self.config.n_skip) else None
             else:
                 skip = None
+            if(i == 0): skip = None
             x = decoder_block(x, skip=skip)
         return x
 
@@ -383,6 +400,7 @@ class VisionTransformer(nn.Module):
         self.config = config
 
     def forward(self, x):
+        # 如果第1维为1，就改为3维（RGB输入）
         if x.size()[1] == 1:
             x = x.repeat(1,3,1,1)
         x, attn_weights, features = self.transformer(x)  # (B, n_patch, hidden)

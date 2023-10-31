@@ -140,15 +140,22 @@ class ResNetV2(nn.Module):
         ]))
 
     def forward(self, x):
+        # 输入x :(3*224*224)
         features = []
         b, c, in_size, _ = x.size()
         x = self.root(x)
+        # x :(64*112*112)
         features.append(x)
         x = nn.MaxPool2d(kernel_size=3, stride=2, padding=0)(x)
+        # x :(64*55*55)
         for i in range(len(self.body)-1):
+            # 共循环2次
             x = self.body[i](x)
+            # 第一次: x:(256*55*55)
+            # 第二次: x:(512*28*28)
             right_size = int(in_size / 4 / (i+1))
             if x.size()[2] != right_size:
+                # 第一次走了这个分支，将加入features 的feat从（256*55*55）变成了（256*56*56）
                 pad = right_size - x.size()[2]
                 assert pad < 3 and pad > 0, "x {} should {}".format(x.size(), right_size)
                 feat = torch.zeros((b, x.size()[1], right_size, right_size), device=x.device)
@@ -156,5 +163,8 @@ class ResNetV2(nn.Module):
             else:
                 feat = x
             features.append(feat)
+        # feature最后是三个元素，分别是[(64*112*112),(256*56*56),(512*28*28)],也就是论文中的1/2，1/4,1/8
         x = self.body[-1](x)
+        # 经过最后一次body，x变成(1024*14*14)
         return x, features[::-1]
+        # 注意，features是倒序输出哦，所以是[(512*28*28),(256*56*56),(64*112*112)]

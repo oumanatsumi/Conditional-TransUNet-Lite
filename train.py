@@ -9,6 +9,9 @@ from networks.vit_seg_modeling import VisionTransformer as ViT_seg
 from networks.vit_seg_modeling import CONFIGS as CONFIGS_ViT_seg
 from trainer import trainer_synapse
 from torchsummary import summary
+import netron
+from torch import onnx as onnx
+from tensorboardX import SummaryWriter as SummaryWriter
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--root_path', type=str,
@@ -24,7 +27,7 @@ parser.add_argument('--max_iterations', type=int,
 parser.add_argument('--max_epochs', type=int,
                     default=150, help='maximum epoch number to train')
 parser.add_argument('--batch_size', type=int,
-                    default=12, help='batch_size per gpu')
+                    default=8, help='batch_size per gpu')
 parser.add_argument('--n_gpu', type=int, default=1, help='total gpu')
 parser.add_argument('--deterministic', type=int,  default=1,
                     help='whether use deterministic training')
@@ -82,13 +85,20 @@ if __name__ == "__main__":
 
     if not os.path.exists(snapshot_path):
         os.makedirs(snapshot_path)
+    # 选择模型结构（使用R50-VITB16)
     config_vit = CONFIGS_ViT_seg[args.vit_name]
+    # 指定分类数
     config_vit.n_classes = args.num_classes
     config_vit.n_skip = args.n_skip
     if args.vit_name.find('R50') != -1:
         config_vit.patches.grid = (int(args.img_size / args.vit_patches_size), int(args.img_size / args.vit_patches_size))
     net = ViT_seg(config_vit, img_size=args.img_size, num_classes=config_vit.n_classes).cuda()
-    net.load_from(weights=np.load(config_vit.pretrained_path))
+    weight = np.load(config_vit.pretrained_path)
+    net.load_from(weights=weight)
+
+    img = torch.rand(size= (1, 3, 224, 224)).cuda()
+    outputs = net(img)
     summary(net, (3, 224, 224))
+
     trainer = {'Synapse': trainer_synapse,}
     trainer[dataset_name](args, net, snapshot_path)
