@@ -6,8 +6,8 @@ import torchvision
 
 
 def threshold(img, threshold_value):
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    ret, binary = cv2.threshold(gray, threshold_value, 255, cv2.THRESH_BINARY)
+    # gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    ret, binary = cv2.threshold(img, threshold_value, 255, cv2.THRESH_BINARY)
     return binary
 
 
@@ -109,7 +109,7 @@ def box(point_list, center):
         dis_data.append(abs(point_list[i][0] - center[0]) + abs(point_list[i][1] - center[1]))
 
     bp = plt.boxplot(dis_data,patch_artist=True)  # 垂直显示箱线图
-    print("point_listlen :" + str(len(point_list)))
+    # print("point_listlen :" + str(len(point_list)))
     # for item in bp['whiskers']:
     #     print(item.get_ydata())
     max = [item.get_ydata()[0] for item in bp['caps']][1::2][0]
@@ -121,7 +121,7 @@ def box(point_list, center):
             new_point_list.append(point_list[i])
     plt.ylabel("Manhattan Distance")
     # plt.show()  # 显示该图
-    print("new_point_list len :" + str(len(new_point_list)))
+    # print("new_point_list len :" + str(len(new_point_list)))
 
     x_list = []
     y_list = []
@@ -148,8 +148,6 @@ def get_bounding_box(point_list):
 
 
 def extract_feature(img, size, threshold_value):
-    img = img[:1280, 640:-640]
-    height, width = img.shape[:2]
     img = cv2.resize(img, size, interpolation=cv2.INTER_AREA)
     src_img = img.copy()
 
@@ -165,16 +163,15 @@ def extract_feature(img, size, threshold_value):
     # print(x_mid)
     # print(y_mid)
     x_min, x_max, y_min, y_max = get_bounding_box(point_list)
-    print(x_min, x_max, y_min, y_max)
     # cv2.imshow("RES", src_img)
 
     # 创建空白图像作为结果
     result = np.zeros_like(img)
     for point in point_list:
         result[point[1], point[0]] = 255
-    cv2.rectangle(src_img, [max(0, x_min-20), max(0, y_min - 20)], [min(size[1], x_max+20), min(size[0], y_max+20)], color=(255, 255, 0), thickness=3, lineType=4)
-    cv2.imshow("result", src_img)
-    cv2.waitKey(0)
+    # cv2.rectangle(src_img, [max(0, x_min-20), max(0, y_min - 20)], [min(size[1], x_max+20), min(size[0], y_max+20)], color=(255, 255, 0), thickness=3, lineType=4)
+    # cv2.imshow("result", src_img)
+    # cv2.waitKey(0)
     feature = [max(0, x_min-20), max(0, y_min - 20), max(0, x_min-20), min(size[0], y_max+20),
                min(size[1], x_max+20), max(0, y_min - 20), min(size[1], x_max+20), min(size[0], y_max+20),
                x_mid, y_mid,
@@ -185,7 +182,31 @@ def extract_feature(img, size, threshold_value):
     return feature
 
 
-def feature_embedding(feature):
-    embedding = torch.nn.Embedding(14, 14)
-    e = embedding(feature)
+def feature_embedding(feature, max_size):
+    embedding = torch.nn.Embedding(max_size+1, 14)
+    e = embedding(torch.LongTensor(feature))
     return e
+
+
+def tensor2cv_mat(tensor):
+    cv_mat = []
+    array1 = tensor.cpu().numpy()  # 将tensor数据转为numpy数据
+    for i in range(array1.shape[0]):
+        maxValue = array1[i].max()
+        array1[i] = array1[i] * 255 / maxValue  # normalize，将图像数据扩展到[0,255]
+        mat = np.uint8(array1[i])  # float32-->uint8
+        mat = mat.transpose(1, 2, 0)  # mat_shape
+        cv_mat.append(mat)
+    return cv_mat
+
+
+def batch_embedding(mats, threshold_value):
+    batch_embedded_feature = []
+    batch_size = len(mats)
+    for i in range(batch_size):
+        feature = extract_feature(mats[i], (mats[i].shape[0], mats[i].shape[1]), threshold_value)
+        embedded_feature = feature_embedding(feature, mats[i].shape[0])
+        batch_embedded_feature.append(embedded_feature)
+    batch = torch.stack(batch_embedded_feature)
+    batch = torch.unsqueeze(batch, dim=1)
+    return batch

@@ -8,10 +8,10 @@ import torch.backends.cudnn as cudnn
 from networks.vit_seg_modeling import VisionTransformer as ViT_seg
 from networks.vit_seg_modeling import CONFIGS as CONFIGS_ViT_seg
 from trainer import trainer_synapse
-from torchsummary import summary
 import netron
 from torch import onnx as onnx
 from tensorboardX import SummaryWriter as SummaryWriter
+from torchinfo import summary
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--root_path', type=str,
@@ -23,11 +23,11 @@ parser.add_argument('--list_dir', type=str,
 parser.add_argument('--num_classes', type=int,
                     default=9, help='output channel of network')
 parser.add_argument('--max_iterations', type=int,
-                    default=30000, help='maximum epoch number to train')
+                    default=10000, help='maximum epoch number to train')
 parser.add_argument('--max_epochs', type=int,
-                    default=150, help='maximum epoch number to train')
+                    default=50, help='maximum epoch number to train')
 parser.add_argument('--batch_size', type=int,
-                    default=8, help='batch_size per gpu')
+                    default=4, help='batch_size per gpu')
 parser.add_argument('--n_gpu', type=int, default=1, help='total gpu')
 parser.add_argument('--deterministic', type=int,  default=1,
                     help='whether use deterministic training')
@@ -98,7 +98,6 @@ if __name__ == "__main__":
 
     img = torch.rand(size= (1, 3, 224, 224)).cuda()
     outputs = net(img)
-    summary(net, (3, 224, 224))
-
+    summary(net, input_size=(1,3,224,224))
     trainer = {'Synapse': trainer_synapse,}
     trainer[dataset_name](args, net, snapshot_path)
