@@ -23,11 +23,11 @@ parser.add_argument('--list_dir', type=str,
 parser.add_argument('--num_classes', type=int,
                     default=9, help='output channel of network')
 parser.add_argument('--max_iterations', type=int,
-                    default=10000, help='maximum epoch number to train')
+                    default=30000, help='maximum epoch number to train')
 parser.add_argument('--max_epochs', type=int,
-                    default=50, help='maximum epoch number to train')
+                    default=150, help='maximum epoch number to train')
 parser.add_argument('--batch_size', type=int,
-                    default=4, help='batch_size per gpu')
+                    default=24, help='batch_size per gpu')
 parser.add_argument('--n_gpu', type=int, default=1, help='total gpu')
 parser.add_argument('--deterministic', type=int,  default=1,
                     help='whether use deterministic training')
@@ -65,6 +65,11 @@ if __name__ == "__main__":
             'list_dir': './lists/lists_Synapse',
             'num_classes': 9,
         },
+        'TAVR': {
+            'root_path': '../data/TAVR/train_npz',
+            'list_dir': './lists/list_TAVR',
+            'num_classes': 2,
+        },
     }
     args.num_classes = dataset_config[dataset_name]['num_classes']
     args.root_path = dataset_config[dataset_name]['root_path']
@@ -99,5 +104,5 @@ if __name__ == "__main__":
     img = torch.rand(size= (1, 3, 224, 224)).cuda()
     outputs = net(img)
     summary(net, input_size=(1,3,224,224))
-    trainer = {'Synapse': trainer_synapse,}
+    trainer = {'TAVR': trainer_synapse,}
     trainer[dataset_name](args, net, snapshot_path)
