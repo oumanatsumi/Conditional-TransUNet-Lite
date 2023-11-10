@@ -163,10 +163,10 @@ class Embeddings(nn.Module):
             features = None
         x = self.patch_embeddings(x)  # (B, hidden. n_patches^(1/2), n_patches^(1/2))
         # 将特征embedding concat到[767,14,14]中
-        print("x:")
-        print(x.shape)
-        print("self.feature_embeddings:")
-        print(self.feature_embeddings.shape)
+        # print("x:")
+        # print(x.shape)
+        # print("self.feature_embeddings:")
+        # print(self.feature_embeddings.shape)
         x = torch.cat((self.feature_embeddings, x), dim=1)
 
         x = x.flatten(2)

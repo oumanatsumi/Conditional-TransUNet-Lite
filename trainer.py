@@ -28,8 +28,8 @@ def trainer_synapse(args, model, snapshot_path):
                                transform=transforms.Compose(
                                    [RandomGenerator(output_size=[args.img_size, args.img_size])]))
     print("The length of dataset is: {}".format(len(dataset)))
-    valid_size = int(len(dataset) / 16)
-    train_size = len(dataset) - valid_size
+    train_size = int(len(dataset) * 0.9)
+    valid_size = len(dataset) - train_size
     train_dataset, valid_dataset = torch.utils.data.random_split(dataset, [train_size, valid_size])
 
     def worker_init_fn(worker_id):
@@ -98,6 +98,9 @@ def trainer_synapse(args, model, snapshot_path):
                 valid_cnt = valid_cnt + 1
                 valid_image_batch, valid_label_batch = sampled_valid_batch['image'], sampled_valid_batch['label']
                 valid_image_batch, valid_label_batch = valid_image_batch.cuda(), valid_label_batch.cuda()
+                mats = ife.tensor2cv_mat(valid_image_batch)
+                batch_embedded_feature = ife.batch_embedding(mats, 170)
+                model.transformer.embeddings.feature_embeddings = nn.Parameter(torch.Tensor(batch_embedded_feature).cuda())
                 outputs, ITM_labels, ITM_logits = model(valid_image_batch)
                 test_loss_ce += ce_loss(outputs, valid_label_batch[:].long()).item()
                 test_loss_dice += dice_loss(outputs, valid_label_batch, softmax=True).item()
