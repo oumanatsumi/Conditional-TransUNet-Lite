@@ -1,10 +1,7 @@
-import argparse
 import logging
 import os
 import random
 import sys
-import time
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -13,8 +10,9 @@ from torch.nn.modules.loss import CrossEntropyLoss
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from utils import DiceLoss
+import feature_utils.img_feature_extractor as ife
 from torchvision import transforms
-import img_feature_extractor as ife
+
 
 def trainer_synapse(args, model, snapshot_path):
     from datasets.dataset_synapse import Synapse_dataset, RandomGenerator
@@ -57,7 +55,8 @@ def trainer_synapse(args, model, snapshot_path):
             mats = ife.tensor2cv_mat(image_batch)
             batch_embedded_feature = ife.batch_embedding(mats, 170)
             model.transformer.embeddings.feature_embeddings = nn.Parameter(torch.Tensor(batch_embedded_feature).cuda())
-            outputs = model(image_batch)
+            outputs, ITM_labels, ITM_logits = model(image_batch)
+            loss_itm = ce_loss(ITM_logits, ITM_labels)
             loss_ce = ce_loss(outputs, label_batch[:].long())
             loss_dice = dice_loss(outputs, label_batch, softmax=True)
             loss = 0.5 * loss_ce + 0.5 * loss_dice

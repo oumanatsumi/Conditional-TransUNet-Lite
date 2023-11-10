@@ -3,5 +3,5 @@
   <component name="Black">
     <option name="sdkName" value="pytorch_test" />
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="testEnv" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="TransUNet" project-jdk-type="Python SDK" />
 </project>

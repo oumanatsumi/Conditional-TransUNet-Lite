@@ -165,7 +165,8 @@ class Embeddings(nn.Module):
         # 将特征embedding concat到[767,14,14]中
         x = torch.cat((self.feature_embeddings, x), dim=1)
         x = x.flatten(2)
-        x = x.transpose(-1, -2)  # (B, n_patches, hidden)
+        x = x.transpose(-1, -2)  # (B, n_patches, hidden) (1, 196, 768)
+        # x = torch.cat((torch.zeros(1, 2, 768).cuda(), x), dim=1)
 
         # 原版： ？？？这个相加等于没用position embedding。。(不一定，好像在load的时候加载了权重）
         embeddings = x + self.position_embeddings
@@ -315,13 +316,6 @@ class DecoderBlock(nn.Module):
             use_batchnorm=use_batchnorm,
         )
 
-        # self.conv3 = Conv2dReLU(
-        #     in_channels,
-        #     out_channels,
-        #     kernel_size=3,
-        #     padding=1,
-        #     use_batchnorm=use_batchnorm
-        # )
         self.up = nn.UpsamplingBilinear2d(scale_factor=2)
 
     def forward(self, x, skip=None):
@@ -410,7 +404,9 @@ class VisionTransformer(nn.Module):
         x, attn_weights, features = self.transformer(x)  # (B, n_patch, hidden)
         x = self.decoder(x, features)
         logits = self.segmentation_head(x)
-        return logits
+        ITM_labels = torch.LongTensor([1, 0, 1, 1, 1, 0, 1, 0]).cuda()
+        ITM_logits = nn.Parameter(torch.randn(8, 2).cuda())
+        return logits, ITM_labels, ITM_logits
 
     def load_from(self, weights):
         with torch.no_grad():
