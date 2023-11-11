@@ -133,11 +133,13 @@ class ResNetV2(nn.Module):
                 [('unit1/', PreActBottleneck(cin=width*4, cout=width*8, cmid=width*2, stride=2))] +
                 [(f'unit{i:d}/', PreActBottleneck(cin=width*8, cout=width*8, cmid=width*2)) for i in range(2, block_units[1] + 1)],
                 ))),
-            ('block3/', nn.Sequential(OrderedDict(
-                [('unit1/', PreActBottleneck(cin=width*8, cout=width*16, cmid=width*4, stride=2))] +
-                [(f'unit{i:d}/', PreActBottleneck(cin=width*16, cout=width*16, cmid=width*4)) for i in range(2, block_units[2] + 1)],
-                ))),
+            # ('block3/', nn.Sequential(OrderedDict(
+            #     [('unit1/', PreActBottleneck(cin=width*8, cout=width*16, cmid=width*4, stride=2))] +
+            #     [(f'unit{i:d}/', PreActBottleneck(cin=width*16, cout=width*16, cmid=width*4)) for i in range(2, block_units[2] + 1)],
+            #     ))),
         ]))
+
+        self.pool = nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
 
     def forward(self, x):
         # 输入x :(3*224*224)
@@ -148,7 +150,7 @@ class ResNetV2(nn.Module):
         features.append(x)
         x = nn.MaxPool2d(kernel_size=3, stride=2, padding=0)(x)
         # x :(64*55*55)
-        for i in range(len(self.body)-1):
+        for i in range(len(self.body)):
             # 共循环2次
             x = self.body[i](x)
             # 第一次: x:(256*55*55)
@@ -164,7 +166,9 @@ class ResNetV2(nn.Module):
                 feat = x
             features.append(feat)
         # feature最后是三个元素，分别是[(64*112*112),(256*56*56),(512*28*28)],也就是论文中的1/2，1/4,1/8
-        x = self.body[-1](x)
+        # x = self.body[-1](x)
         # 经过最后一次body，x变成(1024*14*14)
+        x = self.pool(x)
+
         return x, features[::-1]
         # 注意，features是倒序输出哦，所以是[(512*28*28),(256*56*56),(64*112*112)]
