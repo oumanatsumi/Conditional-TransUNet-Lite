@@ -115,8 +115,8 @@ def trainer_synapse(args, model, snapshot_path):
                          % (iter_num, loss.item(), loss_ce.item(), loss_dice.item(), test_loss, test_loss_ce, test_loss_dice))
 
         save_interval = 20  # int(max_epoch/6)
-        # if epoch_num > int(max_epoch / 2) and (epoch_num + 1) % save_interval == 0:
-        if (epoch_num + 1) % save_interval == 0:
+        if epoch_num > int(max_epoch / 2) and (epoch_num + 1) % save_interval == 0:
+        # if (epoch_num + 1) % save_interval == 0:
             save_mode_path = os.path.join(snapshot_path, 'epoch_' + str(epoch_num) + '.pth')
             torch.save(model.state_dict(), save_mode_path)
             logging.info("save model to {}".format(save_mode_path))

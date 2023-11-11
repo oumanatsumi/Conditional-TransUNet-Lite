@@ -103,6 +103,6 @@ if __name__ == "__main__":
 
     # img = torch.rand(size= (1, 3, 224, 224)).cuda()
     # outputs = net(img)
-    # summary(net, input_size=(1,3,224,224))
+    summary(net, input_size=(1,3,224,224))
     trainer = {'TAVR': trainer_synapse,}
     trainer[dataset_name](args, net, snapshot_path)
