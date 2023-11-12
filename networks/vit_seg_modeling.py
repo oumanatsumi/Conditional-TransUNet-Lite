@@ -143,11 +143,9 @@ class Embeddings(nn.Module):
             self.hybrid_model = ResNetV2(block_units=config.resnet.num_layers, width_factor=config.resnet.width_factor)
             in_channels = self.hybrid_model.width * 16
         self.patch_embeddings = Conv2d(in_channels=in_channels,
-                                       out_channels=config.hidden_size-1,
+                                       out_channels=config.hidden_size,
                                        kernel_size=patch_size,
                                        stride=patch_size)
-        # 新增特征embedding嵌入
-        self.feature_embeddings = nn.Parameter(torch.zeros(1, 1, grid_size[0], grid_size[1]))
         # 原版：position_embeddings初始化全是0
         self.position_embeddings = nn.Parameter(torch.zeros(1, n_patches, config.hidden_size))
         # 新版，concat
@@ -162,13 +160,6 @@ class Embeddings(nn.Module):
         else:
             features = None
         x = self.patch_embeddings(x)  # (B, hidden. n_patches^(1/2), n_patches^(1/2))
-        # 将特征embedding concat到[767,14,14]中
-        # print("x:")
-        # print(x.shape)
-        # print("self.feature_embeddings:")
-        # print(self.feature_embeddings.shape)
-        x = torch.cat((self.feature_embeddings, x), dim=1)
-
         x = x.flatten(2)
         x = x.transpose(-1, -2)  # (B, n_patches, hidden) (1, 196, 768)
         # x = torch.cat((torch.zeros(1, 2, 768).cuda(), x), dim=1)
@@ -382,7 +373,7 @@ class DecoderCup(nn.Module):
                 skip = features[i] if (i < self.config.n_skip) else None
             else:
                 skip = None
-            if(i == 0): skip = None
+            # if(i == 0): skip = None
             x = decoder_block(x, skip=skip)
         return x
 

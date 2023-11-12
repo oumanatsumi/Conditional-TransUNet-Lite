@@ -56,10 +56,6 @@ def trainer_synapse(args, model, snapshot_path):
         for i_batch, sampled_batch in enumerate(trainloader):
             image_batch, label_batch = sampled_batch['image'], sampled_batch['label']
             image_batch, label_batch = image_batch.cuda(), label_batch.cuda()
-            # 得到image_batch特征，加入到模型中
-            mats = ife.tensor2cv_mat(image_batch)
-            batch_embedded_feature = ife.batch_embedding(mats, 170)
-            model.transformer.embeddings.feature_embeddings = nn.Parameter(torch.Tensor(batch_embedded_feature).cuda())
             outputs, ITM_labels, ITM_logits = model(image_batch)
             loss_itm = ce_loss(ITM_logits, ITM_labels)
             loss_ce = ce_loss(outputs, label_batch[:].long())
@@ -98,9 +94,6 @@ def trainer_synapse(args, model, snapshot_path):
                 valid_cnt = valid_cnt + 1
                 valid_image_batch, valid_label_batch = sampled_valid_batch['image'], sampled_valid_batch['label']
                 valid_image_batch, valid_label_batch = valid_image_batch.cuda(), valid_label_batch.cuda()
-                mats = ife.tensor2cv_mat(valid_image_batch)
-                batch_embedded_feature = ife.batch_embedding(mats, 170)
-                model.transformer.embeddings.feature_embeddings = nn.Parameter(torch.Tensor(batch_embedded_feature).cuda())
                 outputs, ITM_labels, ITM_logits = model(valid_image_batch)
                 test_loss_ce += ce_loss(outputs, valid_label_batch[:].long()).item()
                 test_loss_dice += dice_loss(outputs, valid_label_batch, softmax=True).item()
@@ -111,12 +104,12 @@ def trainer_synapse(args, model, snapshot_path):
             writer.add_scalar('info/test_total_loss', test_loss, iter_num)
             writer.add_scalar('info/test_loss_ce', test_loss_ce, iter_num)
             writer.add_scalar('info/test_loss_dice', test_loss_dice, iter_num)
-            logging.info('iteration %d : train_loss : %f, train_loss_ce: %f, train_loss_dice: %f train_loss : %f, train_loss_ce: %f, train_loss_dice: %f'
+            logging.info('iteration %d : train_loss : %f, train_loss_ce: %f, train_loss_dice: %f test_loss : %f, test_loss_ce: %f, test_loss_dice: %f'
                          % (iter_num, loss.item(), loss_ce.item(), loss_dice.item(), test_loss, test_loss_ce, test_loss_dice))
 
         save_interval = 20  # int(max_epoch/6)
-        # if epoch_num > int(max_epoch / 2) and (epoch_num + 1) % save_interval == 0:
-        if (epoch_num + 1) % save_interval == 0:
+        if epoch_num > int(max_epoch / 2) and (epoch_num + 1) % save_interval == 0:
+        # if (epoch_num + 1) % save_interval == 0:
             save_mode_path = os.path.join(snapshot_path, 'epoch_' + str(epoch_num) + '.pth')
             torch.save(model.state_dict(), save_mode_path)
             logging.info("save model to {}".format(save_mode_path))
