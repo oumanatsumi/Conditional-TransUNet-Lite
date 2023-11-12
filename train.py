@@ -8,8 +8,6 @@ import torch.backends.cudnn as cudnn
 from networks.vit_seg_modeling import VisionTransformer as ViT_seg
 from networks.vit_seg_modeling import CONFIGS as CONFIGS_ViT_seg
 from trainer import trainer_synapse
-import netron
-from torch import onnx as onnx
 from tensorboardX import SummaryWriter as SummaryWriter
 from torchinfo import summary
 
