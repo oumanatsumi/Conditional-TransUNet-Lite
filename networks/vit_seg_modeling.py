@@ -23,14 +23,14 @@ from .vit_seg_modeling_resnet_skip import ResNetV2
 logger = logging.getLogger(__name__)
 
 
-ATTENTION_Q = "MultiHeadDotProductAttention_1/query/"
-ATTENTION_K = "MultiHeadDotProductAttention_1/key/"
-ATTENTION_V = "MultiHeadDotProductAttention_1/value/"
-ATTENTION_OUT = "MultiHeadDotProductAttention_1/out/"
-FC_0 = "MlpBlock_3/Dense_0/"
-FC_1 = "MlpBlock_3/Dense_1/"
-ATTENTION_NORM = "LayerNorm_0/"
-MLP_NORM = "LayerNorm_2/"
+ATTENTION_Q = "MultiHeadDotProductAttention_1/query"
+ATTENTION_K = "MultiHeadDotProductAttention_1/key"
+ATTENTION_V = "MultiHeadDotProductAttention_1/value"
+ATTENTION_OUT = "MultiHeadDotProductAttention_1/out"
+FC_0 = "MlpBlock_3/Dense_0"
+FC_1 = "MlpBlock_3/Dense_1"
+ATTENTION_NORM = "LayerNorm_0"
+MLP_NORM = "LayerNorm_2"
 
 
 def np2th(weights, conv=False):
@@ -146,28 +146,21 @@ class Embeddings(nn.Module):
                                        out_channels=config.hidden_size,
                                        kernel_size=patch_size,
                                        stride=patch_size)
-        # 原版：position_embeddings初始化全是0
         self.position_embeddings = nn.Parameter(torch.zeros(1, n_patches, config.hidden_size))
-        # 新版，concat
-        # self.position_embeddings = nn.Parameter(torch.zeros(1, 1, config.hidden_size))
+
         self.dropout = Dropout(config.transformer["dropout_rate"])
 
 
     def forward(self, x):
         if self.hybrid:
             x, features = self.hybrid_model(x)
-            # 得到了经过ResNetV2提取特征后的图像，并且拷贝了一份三层的特征到features里，后面接着用
         else:
             features = None
         x = self.patch_embeddings(x)  # (B, hidden. n_patches^(1/2), n_patches^(1/2))
         x = x.flatten(2)
-        x = x.transpose(-1, -2)  # (B, n_patches, hidden) (1, 196, 768)
-        # x = torch.cat((torch.zeros(1, 2, 768).cuda(), x), dim=1)
+        x = x.transpose(-1, -2)  # (B, n_patches, hidden)
 
-        # 原版： ？？？这个相加等于没用position embedding。。(不一定，好像在load的时候加载了权重）
         embeddings = x + self.position_embeddings
-        # 新版
-        # embeddings = torch.cat([self.position_embeddings, x], dim=1)
         embeddings = self.dropout(embeddings)
         return embeddings, features
 
@@ -194,7 +187,7 @@ class Block(nn.Module):
         return x, weights
 
     def load_from(self, weights, n_block):
-        ROOT = f"Transformer/encoderblock_{n_block}/"
+        ROOT = f"Transformer/encoderblock_{n_block}"
         with torch.no_grad():
             query_weight = np2th(weights[pjoin(ROOT, ATTENTION_Q, "kernel")]).view(self.hidden_size, self.hidden_size).t()
             key_weight = np2th(weights[pjoin(ROOT, ATTENTION_K, "kernel")]).view(self.hidden_size, self.hidden_size).t()
@@ -311,7 +304,6 @@ class DecoderBlock(nn.Module):
             padding=1,
             use_batchnorm=use_batchnorm,
         )
-
         self.up = nn.UpsamplingBilinear2d(scale_factor=2)
 
     def forward(self, x, skip=None):
@@ -320,8 +312,6 @@ class DecoderBlock(nn.Module):
             x = torch.cat([x, skip], dim=1)
         x = self.conv1(x)
         x = self.conv2(x)
-        # else:
-        #     x = self.conv3(x)
         return x
 
 
@@ -353,10 +343,10 @@ class DecoderCup(nn.Module):
             skip_channels = self.config.skip_channels
             for i in range(4-self.config.n_skip):  # re-select the skip channels according to n_skip
                 skip_channels[3-i]=0
+
         else:
             skip_channels=[0,0,0,0]
 
-        skip_channels[0] = 0
         blocks = [
             DecoderBlock(in_ch, out_ch, sk_ch) for in_ch, out_ch, sk_ch in zip(in_channels, out_channels, skip_channels)
         ]
@@ -373,7 +363,6 @@ class DecoderCup(nn.Module):
                 skip = features[i] if (i < self.config.n_skip) else None
             else:
                 skip = None
-            # if(i == 0): skip = None
             x = decoder_block(x, skip=skip)
         return x
 
@@ -394,22 +383,19 @@ class VisionTransformer(nn.Module):
         self.config = config
 
     def forward(self, x):
-        # 如果第1维为1，就改为3维（RGB输入）
         if x.size()[1] == 1:
             x = x.repeat(1,3,1,1)
         x, attn_weights, features = self.transformer(x)  # (B, n_patch, hidden)
         x = self.decoder(x, features)
         logits = self.segmentation_head(x)
-        ITM_labels = torch.LongTensor([1, 0, 1, 1, 1, 0, 1, 0]).cuda()
-        ITM_logits = nn.Parameter(torch.randn(8, 2).cuda())
-        return logits, ITM_labels, ITM_logits
+        return logits
 
     def load_from(self, weights):
         with torch.no_grad():
 
             res_weight = weights
-            # self.transformer.embeddings.patch_embeddings.weight.copy_(np2th(weights["embedding/kernel"], conv=True))
-            # self.transformer.embeddings.patch_embeddings.bias.copy_(np2th(weights["embedding/bias"]))
+            self.transformer.embeddings.patch_embeddings.weight.copy_(np2th(weights["embedding/kernel"], conv=True))
+            self.transformer.embeddings.patch_embeddings.bias.copy_(np2th(weights["embedding/bias"]))
 
             self.transformer.encoder.encoder_norm.weight.copy_(np2th(weights["Transformer/encoder_norm/scale"]))
             self.transformer.encoder.encoder_norm.bias.copy_(np2th(weights["Transformer/encoder_norm/bias"]))
@@ -452,8 +438,6 @@ class VisionTransformer(nn.Module):
                 for bname, block in self.transformer.embeddings.hybrid_model.body.named_children():
                     for uname, unit in block.named_children():
                         unit.load_from(res_weight, n_block=bname, n_unit=uname)
-
-
 
 CONFIGS = {
     'ViT-B_16': configs.get_b16_config(),

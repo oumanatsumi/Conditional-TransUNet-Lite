@@ -56,8 +56,7 @@ def trainer_synapse(args, model, snapshot_path):
         for i_batch, sampled_batch in enumerate(trainloader):
             image_batch, label_batch = sampled_batch['image'], sampled_batch['label']
             image_batch, label_batch = image_batch.cuda(), label_batch.cuda()
-            outputs, ITM_labels, ITM_logits = model(image_batch)
-            loss_itm = ce_loss(ITM_logits, ITM_labels)
+            outputs = model(image_batch)
             loss_ce = ce_loss(outputs, label_batch[:].long())
             loss_dice = dice_loss(outputs, label_batch, softmax=True)
             loss = 0.5 * loss_ce + 0.5 * loss_dice
@@ -94,7 +93,7 @@ def trainer_synapse(args, model, snapshot_path):
                 valid_cnt = valid_cnt + 1
                 valid_image_batch, valid_label_batch = sampled_valid_batch['image'], sampled_valid_batch['label']
                 valid_image_batch, valid_label_batch = valid_image_batch.cuda(), valid_label_batch.cuda()
-                outputs, ITM_labels, ITM_logits = model(valid_image_batch)
+                outputs = model(valid_image_batch)
                 test_loss_ce += ce_loss(outputs, valid_label_batch[:].long()).item()
                 test_loss_dice += dice_loss(outputs, valid_label_batch, softmax=True).item()
                 test_loss += 0.5 * loss_ce + 0.5 * loss_dice.item()
