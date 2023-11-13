@@ -60,8 +60,7 @@ def trainer_synapse(args, model, snapshot_path):
             mats = ife.tensor2cv_mat(image_batch)
             batch_embedded_feature = ife.batch_embedding(mats, 170)
             model.transformer.embeddings.feature_embeddings = nn.Parameter(torch.Tensor(batch_embedded_feature).cuda())
-            outputs, ITM_labels, ITM_logits = model(image_batch)
-            loss_itm = ce_loss(ITM_logits, ITM_labels)
+            outputs = model(image_batch)
             loss_ce = ce_loss(outputs, label_batch[:].long())
             loss_dice = dice_loss(outputs, label_batch, softmax=True)
             loss = 0.5 * loss_ce + 0.5 * loss_dice
@@ -101,7 +100,7 @@ def trainer_synapse(args, model, snapshot_path):
                 mats = ife.tensor2cv_mat(valid_image_batch)
                 batch_embedded_feature = ife.batch_embedding(mats, 170)
                 model.transformer.embeddings.feature_embeddings = nn.Parameter(torch.Tensor(batch_embedded_feature).cuda())
-                outputs, ITM_labels, ITM_logits = model(valid_image_batch)
+                outputs = model(valid_image_batch)
                 test_loss_ce += ce_loss(outputs, valid_label_batch[:].long()).item()
                 test_loss_dice += dice_loss(outputs, valid_label_batch, softmax=True).item()
                 test_loss += 0.5 * loss_ce + 0.5 * loss_dice.item()

@@ -148,7 +148,7 @@ class ResNetV2(nn.Module):
         features.append(x)
         x = nn.MaxPool2d(kernel_size=3, stride=2, padding=0)(x)
         # x :(64*55*55)
-        for i in range(len(self.body))-1:
+        for i in range(len(self.body)-1):
             # 共循环2次
             x = self.body[i](x)
             # 第一次: x:(256*55*55)
