@@ -8,8 +8,6 @@ import torch.backends.cudnn as cudnn
 from networks.vit_seg_modeling import VisionTransformer as ViT_seg
 from networks.vit_seg_modeling import CONFIGS as CONFIGS_ViT_seg
 from trainer import trainer_synapse
-import netron
-from torch import onnx as onnx
 from tensorboardX import SummaryWriter as SummaryWriter
 from torchinfo import summary
 
@@ -103,6 +101,6 @@ if __name__ == "__main__":
 
     # img = torch.rand(size= (1, 3, 224, 224)).cuda()
     # outputs = net(img)
-    # summary(net, input_size=(1,3,224,224))
+    summary(net, input_size=(1,3,224,224))
     trainer = {'TAVR': trainer_synapse,}
     trainer[dataset_name](args, net, snapshot_path)
