@@ -119,7 +119,7 @@ def box(point_list, center):
     for i in range(len(point_list)):
         if(dis_data[i] < max):
             new_point_list.append(point_list[i])
-    plt.ylabel("Manhattan Distance")
+    # plt.ylabel("Manhattan Distance")
     # plt.show()  # 显示该图
     # print("new_point_list len :" + str(len(new_point_list)))
 
@@ -148,18 +148,19 @@ def get_bounding_box(point_list):
 
 
 def extract_feature(img, size, threshold_value):
+    # img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     img = cv2.resize(img, size, interpolation=cv2.INTER_AREA)
     src_img = img.copy()
 
     img = threshold(img, threshold_value)
     # cv2.imshow("THRESHOLD", img)
     point_list, x_mid, y_mid = get_point_list(img)
-    cv2.circle(src_img, (x_mid, y_mid), 1, (0, 0, 255), 2)  # 画圆心
+    # cv2.circle(src_img, (x_mid, y_mid), 1, (0, 0, 255), 2)  # 画圆心
     # print(x_mid)
     # print(y_mid)
 
     point_list, x_mid, y_mid = box(point_list, [x_mid, y_mid])
-    cv2.circle(src_img, (x_mid,y_mid), 1, (255, 255, 0), 2)  # 画圆心
+    # cv2.circle(src_img, (x_mid,y_mid), 1, (255, 255, 0), 2)  # 画圆心
     # print(x_mid)
     # print(y_mid)
     x_min, x_max, y_min, y_max = get_bounding_box(point_list)
