@@ -10,8 +10,7 @@ from tensorboardX import SummaryWriter
 from torch.nn.modules.loss import *
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from utils import DiceLoss
-from utils import FocalLoss
+from utils import DiceLoss,FocalLoss,MyFocalLoss
 import feature_utils.img_feature_extractor as ife
 from torchvision import transforms
 import numpy as np
@@ -51,11 +50,11 @@ def trainer_synapse(args, model, snapshot_path):
     model.train()
     alpha = 0.5
     beta = 0.9
-    wce_weight = torch.from_numpy(np.array([200000/700, 1])).float().cuda()
+    wce_weight = torch.from_numpy(np.array([700, 200000])).float().cuda()
     ce_loss = CrossEntropyLoss()
     wce_loss = CrossEntropyLoss(wce_weight)
     dice_loss = DiceLoss(num_classes)
-    focal_loss = FocalLoss(weight=wce_weight)
+    focal_loss = MyFocalLoss()
     optimizer = optim.SGD(model.parameters(), lr=base_lr, momentum=0.9, weight_decay=0.0001)
     writer = SummaryWriter(snapshot_path + '/log')
     iter_num = 0
