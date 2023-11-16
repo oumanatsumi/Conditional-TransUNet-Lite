@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import torchvision
 from medpy import metric
 from scipy.ndimage import zoom
 import torch.nn as nn
@@ -113,3 +114,13 @@ class FocalLoss(nn.Module):
         pt = torch.exp(-ce_loss)  # 计算预测的概率
         focal_loss = (1 - pt) ** self.gamma * ce_loss  # 根据Focal Loss公式计算Focal Loss
         return focal_loss
+
+
+class MyFocalLoss(nn.Module):
+    def __init__(self, gamma=2, alpha=0.25):
+        super(MyFocalLoss, self).__init__()
+        self.gamma = gamma
+        self.alpha = alpha
+
+    def forward(self, inputs, targets):
+        output = torchvision.ops.sigmoid_focal_loss(inputs, targets, gamma=self.gamma, alpha=self.alpha)
