@@ -36,11 +36,11 @@ def trainer_synapse(args, model, snapshot_path):
     def worker_init_fn(worker_id):
         random.seed(args.seed + worker_id)
 
-    trainloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=0, pin_memory=True,
+    trainloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=8, pin_memory=True,
                              worker_init_fn=worker_init_fn)
-    validloader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, num_workers=0, pin_memory=True,
+    validloader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, num_workers=8, pin_memory=True,
                              worker_init_fn=worker_init_fn)
-    testloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=0, pin_memory=True,
+    testloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=8, pin_memory=True,
                              worker_init_fn=worker_init_fn)
 
     if args.n_gpu > 1:
@@ -55,6 +55,7 @@ def trainer_synapse(args, model, snapshot_path):
     max_iterations = args.max_epochs * len(trainloader)  # max_epoch = max_iterations // len(trainloader) + 1
     logging.info("{} iterations per epoch. {} max iterations ".format(len(trainloader), max_iterations))
     best_performance = 0.0
+    alpha = 0.5
     iterator = tqdm(range(max_epoch), ncols=70)
     for epoch_num in iterator:
         for i_batch, sampled_batch in enumerate(trainloader):
@@ -68,7 +69,7 @@ def trainer_synapse(args, model, snapshot_path):
             loss_itm = ce_loss(ITM_logits, ITM_labels)
             loss_ce = ce_loss(outputs, label_batch[:].long())
             loss_dice = dice_loss(outputs, label_batch, softmax=True)
-            loss = 0.5 * loss_ce + 0.5 * loss_dice
+            loss = alpha * loss_ce + (1-alpha) * loss_dice
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -109,7 +110,7 @@ def trainer_synapse(args, model, snapshot_path):
                 outputs, ITM_labels, ITM_logits = model(valid_image_batch)
                 valid_loss_ce += ce_loss(outputs, valid_label_batch[:].long()).item()
                 valid_loss_dice += dice_loss(outputs, valid_label_batch, softmax=True).item()
-                valid_loss += 0.5 * valid_loss_ce + 0.5 * valid_loss_dice.item()
+                valid_loss += alpha * valid_loss_ce + (1-alpha) * valid_loss_dice.item()
             valid_loss /= valid_cnt
             valid_loss_ce /= valid_cnt
             valid_loss_dice /= valid_cnt
@@ -147,7 +148,7 @@ def trainer_synapse(args, model, snapshot_path):
                 outputs, ITM_labels, ITM_logits = model(test_image_batch)
                 test_loss_ce += ce_loss(outputs, test_label_batch[:].long()).item()
                 test_loss_dice += dice_loss(outputs, test_label_batch, softmax=True).item()
-                test_loss += 0.5 * test_loss_ce + 0.5 * test_loss_dice.item()
+                test_loss += alpha * test_loss_ce + (1-alpha) * test_loss_dice.item()
             test_loss /= test_cnt
             test_loss_ce /= test_cnt
             test_loss_dice /= test_cnt

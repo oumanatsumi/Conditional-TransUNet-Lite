@@ -5,16 +5,14 @@
 # output_names = ["output_1"]
 #
 # torch.onnx.export(model, dummy_input, "model.onnx", verbose=True, input_names=input_names, output_names=output_names)
-import torch
-import torch.nn as nn
-import feature_utils.img_feature_extractor as ife
-import cv2
-img=cv2.imread("D:\\learn\\python\\centerPrediction\\data\\MPR(6).jpg")
+import logging
 
-feature = ife.extract_feature(img, (512, 512), 170)
-embedding = torch.nn.Embedding(513,14)
-e1 = embedding(torch.LongTensor(feature))
-print(e1)
+# img=cv2.imread("D:\\learn\\python\\centerPrediction\\data\\MPR(6).jpg")
+#
+# feature = ife.extract_feature(img, (512, 512), 170)
+# embedding = torch.nn.Embedding(512,14)
+# e1 = embedding(torch.LongTensor(feature))
+# print(e1)
 
 # cnt = 0
 # pathLoc ="D:\\learn\\python\\TransUNetProject\\data\\Synapse\\train_npz\\"
@@ -54,9 +52,14 @@ print(e1)
 # print("loss")
 # print(output.item())
 
-## 20231114
-# import feature_utils.img_feature_extractor as ife
-# import cv2
+import json
+
+
+# logging.basicConfig(format='%(asctime)s - %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s',
+#                     level=logging.DEBUG,
+#                     filename='test.log',
+#                     filemode='a')
 #
-# img = cv2.imread("./000034.jpg")
-# ife.extract_feature(img,(512,512),190)
+# logging.info(
+#     'iteration %d : train_loss : %f, train_loss_ce: %f, train_loss_dice: %f test_loss : %f, test_loss_ce: %f, test_loss_dice: %f'
+#     % (1, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0))
