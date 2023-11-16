@@ -38,11 +38,11 @@ def trainer_synapse(args, model, snapshot_path):
     def worker_init_fn(worker_id):
         random.seed(args.seed + worker_id)
 
-    trainloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=8, pin_memory=True,
+    trainloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=0, pin_memory=True,
                              worker_init_fn=worker_init_fn)
-    validloader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, num_workers=8, pin_memory=True,
+    validloader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, num_workers=0, pin_memory=True,
                              worker_init_fn=worker_init_fn)
-    testloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=8, pin_memory=True,
+    testloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=0, pin_memory=True,
                              worker_init_fn=worker_init_fn)
 
     if args.n_gpu > 1:
@@ -94,12 +94,11 @@ def trainer_synapse(args, model, snapshot_path):
 
             # logging.info('iteration %d : train_loss : %f, train_loss_ce: %f, train_loss_dice: %f' % (iter_num, loss.item(), loss_ce.item(), loss_dice.item()))
 
-            if iter_num % 2 == 0:
+            if iter_num % 1 == 0:
                 image = image_batch[1, 0:1, :, :]
                 image = (image - image.min()) / (image.max() - image.min())
                 writer.add_image('train/Image', image, iter_num)
-                sm = torch.softmax(outputs, dim=1)
-                outputs = torch.argmax(sm, dim=1, keepdim=True)
+                outputs = torch.argmax(torch.softmax(outputs, dim=1), dim=1, keepdim=True)
                 writer.add_image('train/Prediction', outputs[1, ...] * 50, iter_num)
                 labs = label_batch[1, ...].unsqueeze(0) * 50
                 writer.add_image('train/GroundTruth', labs, iter_num)
@@ -122,7 +121,9 @@ def trainer_synapse(args, model, snapshot_path):
                 valid_loss_dice += dice_loss(outputs, valid_label_batch, softmax=True).item()
                 # valid_loss += alpha * valid_loss_ce + (1-alpha) * valid_loss_dice.item()
                 valid_loss = valid_loss_ce
-                valid_mean_hd95 += metric.binary.hd95(outputs.cpu().detach().numpy(), valid_label_batch.cpu().detach().numpy())
+                ot = torch.argmax(torch.softmax(outputs, dim=1), dim=1, keepdim=False).cpu().detach().numpy()
+                vl = valid_label_batch.cpu().detach().numpy()
+                valid_mean_hd95 += metric.binary.hd95(ot, vl)
             valid_loss /= valid_cnt
             valid_loss_ce /= valid_cnt
             valid_loss_dice /= valid_cnt
@@ -163,7 +164,9 @@ def trainer_synapse(args, model, snapshot_path):
                 test_loss_ce += ce_loss(outputs, test_label_batch[:].long()).item()
                 test_loss_dice += dice_loss(outputs, test_label_batch, softmax=True).item()
                 test_loss += alpha * test_loss_ce + (1-alpha) * test_loss_dice.item()
-                test_mean_hd95 += metric.binary.hd95(outputs.cpu().detach().numpy(), test_label_batch.cpu().detach().numpy())
+                ot = torch.argmax(torch.softmax(outputs, dim=1), dim=1, keepdim=False).cpu().detach().numpy()
+                vl = test_label_batch.cpu().detach().numpy()
+                test_mean_hd95 += metric.binary.hd95(ot, vl)
             test_loss /= test_cnt
             test_loss_ce /= test_cnt
             test_loss_dice /= test_cnt

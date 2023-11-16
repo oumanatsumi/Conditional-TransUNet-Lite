@@ -28,7 +28,7 @@ parser.add_argument('--max_iterations', type=int,
 parser.add_argument('--max_epochs', type=int,
                     default=150, help='maximum epoch number to train')
 parser.add_argument('--batch_size', type=int,
-                    default=24, help='batch_size per gpu')
+                    default=4, help='batch_size per gpu')
 parser.add_argument('--n_gpu', type=int, default=1, help='total gpu')
 parser.add_argument('--deterministic', type=int,  default=1,
                     help='whether use deterministic training')
@@ -109,6 +109,6 @@ if __name__ == "__main__":
 
     # img = torch.rand(size= (1, 3, 224, 224)).cuda()
     # outputs = net(img)
-    summary(net, input_size=(1,3,224,224))
+    # summary(net, input_size=(1,3,224,224))
     trainer = {'TAVR': trainer_synapse,}
     trainer[dataset_name](args, net, snapshot_path)
