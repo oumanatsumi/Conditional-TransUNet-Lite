@@ -5,6 +5,7 @@ import sys
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from medpy import metric
 from tensorboardX import SummaryWriter
 from torch.nn.modules.loss import *
 from torch.utils.data import DataLoader
@@ -37,11 +38,11 @@ def trainer_synapse(args, model, snapshot_path):
     def worker_init_fn(worker_id):
         random.seed(args.seed + worker_id)
 
-    trainloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=0, pin_memory=True,
+    trainloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=8, pin_memory=True,
                              worker_init_fn=worker_init_fn)
-    validloader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, num_workers=0, pin_memory=True,
+    validloader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, num_workers=8, pin_memory=True,
                              worker_init_fn=worker_init_fn)
-    testloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=0, pin_memory=True,
+    testloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=8, pin_memory=True,
                              worker_init_fn=worker_init_fn)
 
     if args.n_gpu > 1:
@@ -49,9 +50,9 @@ def trainer_synapse(args, model, snapshot_path):
     model.train()
     alpha = 0.5
     beta = 0.9
-    wce_weight = torch.from_numpy(np.array([200000/700, 1])).float().cuda()
+    # wce_weight = torch.from_numpy(np.array([200000/700, 1])).float().cuda()
     ce_loss = CrossEntropyLoss()
-    wce_loss = CrossEntropyLoss(wce_weight)
+    # wce_loss = CrossEntropyLoss(wce_weight)
     dice_loss = DiceLoss(num_classes)
     optimizer = optim.SGD(model.parameters(), lr=base_lr, momentum=0.9, weight_decay=0.0001)
     writer = SummaryWriter(snapshot_path + '/log')
@@ -71,10 +72,10 @@ def trainer_synapse(args, model, snapshot_path):
             batch_embedded_feature = ife.batch_embedding(mats, 170)
             model.transformer.embeddings.feature_embeddings = nn.Parameter(torch.Tensor(batch_embedded_feature).cuda())
             # print(torch.unique(label_batch, return_counts=True))
-            outputs, ITM_labels, ITM_logits = model(image_batch)
-            loss_itm = ce_loss(ITM_logits, ITM_labels)
+            outputs = model(image_batch)
+            # loss_itm = ce_loss(ITM_logits, ITM_labels)
             loss_ce = ce_loss(outputs, label_batch[:].long())
-            loss_wce = wce_loss(outputs, label_batch[:].long())
+            # loss_wce = wce_loss(outputs, label_batch[:].long())
             loss_dice = dice_loss(outputs, label_batch, softmax=True)
             # loss = alpha * loss_ce + (1-alpha) * loss_dice
             loss = loss_ce
@@ -108,6 +109,7 @@ def trainer_synapse(args, model, snapshot_path):
             valid_loss = 0.0
             valid_loss_ce = 0.0
             valid_loss_dice = 0.0
+            valid_mean_hd95 = 0.0
             for i_valid_batch, sampled_valid_batch in enumerate(validloader):
                 valid_cnt = valid_cnt + 1
                 valid_image_batch, valid_label_batch = sampled_valid_batch['image'], sampled_valid_batch['label']
@@ -115,19 +117,21 @@ def trainer_synapse(args, model, snapshot_path):
                 mats = ife.tensor2cv_mat(valid_image_batch)
                 batch_embedded_feature = ife.batch_embedding(mats, 170)
                 model.transformer.embeddings.feature_embeddings = nn.Parameter(torch.Tensor(batch_embedded_feature).cuda())
-                outputs, ITM_labels, ITM_logits = model(valid_image_batch)
+                outputs = model(valid_image_batch)
                 valid_loss_ce += ce_loss(outputs, valid_label_batch[:].long()).item()
                 valid_loss_dice += dice_loss(outputs, valid_label_batch, softmax=True).item()
                 # valid_loss += alpha * valid_loss_ce + (1-alpha) * valid_loss_dice.item()
-                valid_loss += valid_loss_ce
+                valid_loss = valid_loss_ce
+                valid_mean_hd95 += metric.binary.hd95(outputs.cpu().detach().numpy(), valid_label_batch.cpu().detach().numpy())
             valid_loss /= valid_cnt
             valid_loss_ce /= valid_cnt
             valid_loss_dice /= valid_cnt
+            valid_mean_hd95 /= valid_cnt
             writer.add_scalar('info/valid_total_loss', valid_loss, iter_num)
             writer.add_scalar('info/valid_loss_ce', valid_loss_ce, iter_num)
             writer.add_scalar('info/valid_loss_dice', valid_loss_dice, iter_num)
-            logging.info('iteration %d : train_loss : %f, train_loss_ce: %f, train_loss_dice: %f valid_loss : %f, valid_loss_ce: %f, valid_loss_dice: %f'
-                         % (iter_num, loss.item(), loss_ce.item(), loss_dice.item(), valid_loss, valid_loss_ce, valid_loss_dice))
+            logging.info('iteration %d : train_loss : %f, train_loss_ce: %f, train_loss_dice: %f valid_loss : %f, valid_loss_ce: %f, valid_loss_dice: %f, valid_mean_hd95: %f'
+                         % (iter_num, loss.item(), loss_ce.item(), loss_dice.item(), valid_loss, valid_loss_ce, valid_loss_dice, valid_mean_hd95))
 
         save_interval = 20  # int(max_epoch/6)
         if epoch_num > int(max_epoch / 2) and (epoch_num + 1) % save_interval == 0:
@@ -146,6 +150,7 @@ def trainer_synapse(args, model, snapshot_path):
             test_loss = 0.0
             test_loss_ce = 0.0
             test_loss_dice = 0.0
+            test_mean_hd95 = 0.0
             for i_test_batch, sampled_test_batch in enumerate(testloader):
                 test_cnt = test_cnt + 1
                 test_image_batch, test_label_batch = sampled_test_batch['image'], sampled_test_batch['label']
@@ -154,19 +159,25 @@ def trainer_synapse(args, model, snapshot_path):
                 batch_embedded_feature = ife.batch_embedding(mats, 170)
                 model.transformer.embeddings.feature_embeddings = nn.Parameter(
                     torch.Tensor(batch_embedded_feature).cuda())
-                outputs, ITM_labels, ITM_logits = model(test_image_batch)
+                outputs = model(test_image_batch)
                 test_loss_ce += ce_loss(outputs, test_label_batch[:].long()).item()
                 test_loss_dice += dice_loss(outputs, test_label_batch, softmax=True).item()
                 test_loss += alpha * test_loss_ce + (1-alpha) * test_loss_dice.item()
+                test_mean_hd95 += metric.binary.hd95(outputs.cpu().detach().numpy(), test_label_batch.cpu().detach().numpy())
             test_loss /= test_cnt
             test_loss_ce /= test_cnt
             test_loss_dice /= test_cnt
+            test_mean_hd95 /= test_cnt
             writer.add_scalar('info/test_total_loss', test_loss, iter_num)
             writer.add_scalar('info/test_loss_ce', test_loss_ce, iter_num)
             writer.add_scalar('info/test_loss_dice', test_loss_dice, iter_num)
             logging.info(
-                'iteration %d : train_loss : %f, train_loss_ce: %f, train_loss_dice: %f test_loss : %f, test_loss_ce: %f, test_loss_dice: %f'
-                % (iter_num, loss.item(), loss_ce.item(), loss_dice.item(), test_loss, test_loss_ce, test_loss_dice))
+                'TEST RESULT : test_loss : %f, test_loss_ce: %f, test_loss_dice: %f'
+                % (test_loss, test_loss_ce, test_loss_dice))
+            logging.info(
+                'DSC :  %f, hd95: %f,'
+                % (1-test_loss_dice, test_mean_hd95))
+
             iterator.close()
             break
 
