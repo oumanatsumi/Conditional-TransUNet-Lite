@@ -6,12 +6,13 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from tensorboardX import SummaryWriter
-from torch.nn.modules.loss import CrossEntropyLoss
+from torch.nn.modules.loss import *
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from utils import DiceLoss
 import feature_utils.img_feature_extractor as ife
 from torchvision import transforms
+import numpy as np
 
 
 def trainer_synapse(args, model, snapshot_path):
@@ -36,17 +37,21 @@ def trainer_synapse(args, model, snapshot_path):
     def worker_init_fn(worker_id):
         random.seed(args.seed + worker_id)
 
-    trainloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=8, pin_memory=True,
+    trainloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=0, pin_memory=True,
                              worker_init_fn=worker_init_fn)
-    validloader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, num_workers=8, pin_memory=True,
+    validloader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, num_workers=0, pin_memory=True,
                              worker_init_fn=worker_init_fn)
-    testloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=8, pin_memory=True,
+    testloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=0, pin_memory=True,
                              worker_init_fn=worker_init_fn)
 
     if args.n_gpu > 1:
         model = nn.DataParallel(model)
     model.train()
+    alpha = 0.5
+    beta = 0.9
+    wce_weight = torch.from_numpy(np.array([200000/700, 1])).float().cuda()
     ce_loss = CrossEntropyLoss()
+    wce_loss = CrossEntropyLoss(wce_weight)
     dice_loss = DiceLoss(num_classes)
     optimizer = optim.SGD(model.parameters(), lr=base_lr, momentum=0.9, weight_decay=0.0001)
     writer = SummaryWriter(snapshot_path + '/log')
@@ -55,7 +60,7 @@ def trainer_synapse(args, model, snapshot_path):
     max_iterations = args.max_epochs * len(trainloader)  # max_epoch = max_iterations // len(trainloader) + 1
     logging.info("{} iterations per epoch. {} max iterations ".format(len(trainloader), max_iterations))
     best_performance = 0.0
-    alpha = 0.5
+
     iterator = tqdm(range(max_epoch), ncols=70)
     for epoch_num in iterator:
         for i_batch, sampled_batch in enumerate(trainloader):
@@ -65,11 +70,14 @@ def trainer_synapse(args, model, snapshot_path):
             mats = ife.tensor2cv_mat(image_batch)
             batch_embedded_feature = ife.batch_embedding(mats, 170)
             model.transformer.embeddings.feature_embeddings = nn.Parameter(torch.Tensor(batch_embedded_feature).cuda())
+            # print(torch.unique(label_batch, return_counts=True))
             outputs, ITM_labels, ITM_logits = model(image_batch)
             loss_itm = ce_loss(ITM_logits, ITM_labels)
             loss_ce = ce_loss(outputs, label_batch[:].long())
+            loss_wce = wce_loss(outputs, label_batch[:].long())
             loss_dice = dice_loss(outputs, label_batch, softmax=True)
-            loss = alpha * loss_ce + (1-alpha) * loss_dice
+            # loss = alpha * loss_ce + (1-alpha) * loss_dice
+            loss = loss_ce
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -110,7 +118,8 @@ def trainer_synapse(args, model, snapshot_path):
                 outputs, ITM_labels, ITM_logits = model(valid_image_batch)
                 valid_loss_ce += ce_loss(outputs, valid_label_batch[:].long()).item()
                 valid_loss_dice += dice_loss(outputs, valid_label_batch, softmax=True).item()
-                valid_loss += alpha * valid_loss_ce + (1-alpha) * valid_loss_dice.item()
+                # valid_loss += alpha * valid_loss_ce + (1-alpha) * valid_loss_dice.item()
+                valid_loss += valid_loss_ce
             valid_loss /= valid_cnt
             valid_loss_ce /= valid_cnt
             valid_loss_dice /= valid_cnt
