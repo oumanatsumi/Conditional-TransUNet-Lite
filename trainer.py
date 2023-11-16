@@ -105,6 +105,7 @@ def trainer_synapse(args, model, snapshot_path):
 
             # valid test
             valid_cnt = 0
+            hd95_cnt = 0
             valid_loss = 0.0
             valid_loss_ce = 0.0
             valid_loss_dice = 0.0
@@ -123,11 +124,16 @@ def trainer_synapse(args, model, snapshot_path):
                 valid_loss = valid_loss_ce
                 ot = torch.argmax(torch.softmax(outputs, dim=1), dim=1, keepdim=False).cpu().detach().numpy()
                 vl = valid_label_batch.cpu().detach().numpy()
-                valid_mean_hd95 += metric.binary.hd95(ot, vl)
+                if ot.any() and vl.any():
+                    valid_mean_hd95 += metric.binary.hd95(ot, vl)
+                    hd95_cnt = hd95_cnt + 1
             valid_loss /= valid_cnt
             valid_loss_ce /= valid_cnt
             valid_loss_dice /= valid_cnt
-            valid_mean_hd95 /= valid_cnt
+            if hd95_cnt == 0:
+                valid_mean_hd95 = float('inf')
+            else:
+                valid_mean_hd95 /= hd95_cnt
             writer.add_scalar('info/valid_total_loss', valid_loss, iter_num)
             writer.add_scalar('info/valid_loss_ce', valid_loss_ce, iter_num)
             writer.add_scalar('info/valid_loss_dice', valid_loss_dice, iter_num)
@@ -148,6 +154,7 @@ def trainer_synapse(args, model, snapshot_path):
 
             # test
             test_cnt = 0
+            hd95_cnt = 0
             test_loss = 0.0
             test_loss_ce = 0.0
             test_loss_dice = 0.0
@@ -166,11 +173,16 @@ def trainer_synapse(args, model, snapshot_path):
                 test_loss += alpha * test_loss_ce + (1-alpha) * test_loss_dice.item()
                 ot = torch.argmax(torch.softmax(outputs, dim=1), dim=1, keepdim=False).cpu().detach().numpy()
                 vl = test_label_batch.cpu().detach().numpy()
-                test_mean_hd95 += metric.binary.hd95(ot, vl)
+                if ot.any() and vl.any():
+                    test_mean_hd95 += metric.binary.hd95(ot, vl)
+                    hd95_cnt = hd95_cnt + 1
             test_loss /= test_cnt
             test_loss_ce /= test_cnt
             test_loss_dice /= test_cnt
-            test_mean_hd95 /= test_cnt
+            if hd95_cnt == 0:
+                test_mean_hd95 = float('inf')
+            else:
+                test_mean_hd95 /= test_cnt
             writer.add_scalar('info/test_total_loss', test_loss, iter_num)
             writer.add_scalar('info/test_loss_ce', test_loss_ce, iter_num)
             writer.add_scalar('info/test_loss_dice', test_loss_dice, iter_num)
