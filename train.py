@@ -28,7 +28,7 @@ parser.add_argument('--max_iterations', type=int,
 parser.add_argument('--max_epochs', type=int,
                     default=150, help='maximum epoch number to train')
 parser.add_argument('--batch_size', type=int,
-                    default=4, help='batch_size per gpu')
+                    default=24, help='batch_size per gpu')
 parser.add_argument('--n_gpu', type=int, default=1, help='total gpu')
 parser.add_argument('--deterministic', type=int,  default=1,
                     help='whether use deterministic training')
@@ -48,10 +48,10 @@ args = parser.parse_args()
 
 
 if __name__ == "__main__":
-    # logging.basicConfig(format='%(asctime)s - %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s',
-    #                     level=logging.DEBUG,
-    #                     filename= 'loss_ce.log',
-    #                     filemode='a')
+    logging.basicConfig(format='%(asctime)s - %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s',
+                        level=logging.DEBUG,
+                        filename= 'loss_ce.log',
+                        filemode='a')
     if not args.deterministic:
         cudnn.benchmark = True
         cudnn.deterministic = False

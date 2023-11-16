@@ -38,11 +38,11 @@ def trainer_synapse(args, model, snapshot_path):
     def worker_init_fn(worker_id):
         random.seed(args.seed + worker_id)
 
-    trainloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=0, pin_memory=True,
+    trainloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=8, pin_memory=True,
                              worker_init_fn=worker_init_fn)
-    validloader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, num_workers=0, pin_memory=True,
+    validloader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, num_workers=8, pin_memory=True,
                              worker_init_fn=worker_init_fn)
-    testloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=0, pin_memory=True,
+    testloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=8, pin_memory=True,
                              worker_init_fn=worker_init_fn)
 
     if args.n_gpu > 1:
@@ -91,10 +91,9 @@ def trainer_synapse(args, model, snapshot_path):
             writer.add_scalar('info/train_total_loss', loss, iter_num)
             writer.add_scalar('info/train_loss_ce', loss_ce, iter_num)
             writer.add_scalar('info/train_loss_dice', loss_dice, iter_num)
-
             # logging.info('iteration %d : train_loss : %f, train_loss_ce: %f, train_loss_dice: %f' % (iter_num, loss.item(), loss_ce.item(), loss_dice.item()))
 
-            if iter_num % 1 == 0:
+            if iter_num % 200 == 0:
                 image = image_batch[1, 0:1, :, :]
                 image = (image - image.min()) / (image.max() - image.min())
                 writer.add_image('train/Image', image, iter_num)
@@ -127,16 +126,21 @@ def trainer_synapse(args, model, snapshot_path):
                 if ot.any() and vl.any():
                     valid_mean_hd95 += metric.binary.hd95(ot, vl)
                     hd95_cnt = hd95_cnt + 1
+                elif not ot.any():
+                    logging.info("ot is all zero")
+                else:
+                    logging.info("vl is all zero")
             valid_loss /= valid_cnt
             valid_loss_ce /= valid_cnt
             valid_loss_dice /= valid_cnt
             if hd95_cnt == 0:
-                valid_mean_hd95 = float('inf')
+                valid_mean_hd95 = 99999.0
             else:
                 valid_mean_hd95 /= hd95_cnt
             writer.add_scalar('info/valid_total_loss', valid_loss, iter_num)
             writer.add_scalar('info/valid_loss_ce', valid_loss_ce, iter_num)
             writer.add_scalar('info/valid_loss_dice', valid_loss_dice, iter_num)
+            writer.add_scalar('info/valid_mean_hd95', valid_mean_hd95, iter_num)
             logging.info('iteration %d : train_loss : %f, train_loss_ce: %f, train_loss_dice: %f valid_loss : %f, valid_loss_ce: %f, valid_loss_dice: %f, valid_mean_hd95: %f'
                          % (iter_num, loss.item(), loss_ce.item(), loss_dice.item(), valid_loss, valid_loss_ce, valid_loss_dice, valid_mean_hd95))
 
@@ -180,12 +184,13 @@ def trainer_synapse(args, model, snapshot_path):
             test_loss_ce /= test_cnt
             test_loss_dice /= test_cnt
             if hd95_cnt == 0:
-                test_mean_hd95 = float('inf')
+                test_mean_hd95 = 99999.0
             else:
                 test_mean_hd95 /= test_cnt
             writer.add_scalar('info/test_total_loss', test_loss, iter_num)
             writer.add_scalar('info/test_loss_ce', test_loss_ce, iter_num)
             writer.add_scalar('info/test_loss_dice', test_loss_dice, iter_num)
+            writer.add_scalar('info/test_mean_hd95', test_mean_hd95, iter_num)
             logging.info(
                 'TEST RESULT : test_loss : %f, test_loss_ce: %f, test_loss_dice: %f'
                 % (test_loss, test_loss_ce, test_loss_dice))
