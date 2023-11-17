@@ -79,7 +79,7 @@ def trainer_synapse(args, model, snapshot_path):
             loss_wce = wce_loss(outputs, label_batch[:].long())
             loss_focal = focal_loss(outputs, label_batch[:].long())
             loss_dice = dice_loss(outputs, label_batch, softmax=True)
-            loss = alpha * loss_focal + (1-alpha) * loss_dice
+            loss = alpha * loss_wce + (1-alpha) * loss_dice
             # loss = loss_ce
             optimizer.zero_grad()
             loss.backward()
@@ -128,7 +128,7 @@ def trainer_synapse(args, model, snapshot_path):
                 valid_loss_wce += wce_loss(outputs, valid_label_batch[:].long()).item()
                 valid_loss_focal += focal_loss(outputs, valid_label_batch[:].long()).item()
                 valid_loss_dice += dice_loss(outputs, valid_label_batch, softmax=True).item()
-                valid_loss += alpha * valid_loss_focal + (1-alpha) * valid_loss_dice
+                valid_loss = alpha * valid_loss_wce + (1-alpha) * valid_loss_dice
                 # valid_loss = valid_loss_ce
                 ot = torch.argmax(torch.softmax(outputs, dim=1), dim=1, keepdim=False).cpu().detach().numpy()
                 vl = valid_label_batch.cpu().detach().numpy()
@@ -189,7 +189,7 @@ def trainer_synapse(args, model, snapshot_path):
                 test_loss_wce += wce_loss(outputs, test_label_batch[:].long()).item()
                 test_loss_focal += focal_loss(outputs, test_label_batch[:].long()).item()
                 test_loss_dice += dice_loss(outputs, test_label_batch, softmax=True).item()
-                test_loss += alpha * test_loss_focal + (1-alpha) * test_loss_dice
+                test_loss = alpha * test_loss_wce + (1-alpha) * test_loss_dice
                 ot = torch.argmax(torch.softmax(outputs, dim=1), dim=1, keepdim=False).cpu().detach().numpy()
                 vl = test_label_batch.cpu().detach().numpy()
                 if ot.any() and vl.any():
