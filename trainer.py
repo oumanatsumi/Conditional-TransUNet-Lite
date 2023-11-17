@@ -54,7 +54,7 @@ def trainer_synapse(args, model, snapshot_path):
     ce_loss = CrossEntropyLoss()
     wce_loss = CrossEntropyLoss(wce_weight)
     dice_loss = DiceLoss(num_classes)
-    focal_loss = MyFocalLoss()
+    focal_loss = FocalLoss(weight=wce_weight)
     optimizer = optim.SGD(model.parameters(), lr=base_lr, momentum=0.9, weight_decay=0.0001)
     writer = SummaryWriter(snapshot_path + '/log')
     iter_num = 0
@@ -98,7 +98,7 @@ def trainer_synapse(args, model, snapshot_path):
 
             # logging.info('iteration %d : train_loss : %f, train_loss_ce: %f, train_loss_dice: %f' % (iter_num, loss.item(), loss_ce.item(), loss_dice.item()))
 
-            if iter_num % 200 == 0:
+            if iter_num % 2 == 0:
                 image = image_batch[1, 0:1, :, :]
                 image = (image - image.min()) / (image.max() - image.min())
                 writer.add_image('train/Image', image, iter_num)
@@ -155,9 +155,9 @@ def trainer_synapse(args, model, snapshot_path):
                          % (iter_num, loss.item(), loss_ce.item(),loss_wce.item(),loss_focal.item(), loss_dice.item(),
                             valid_loss, valid_loss_ce, valid_loss_wce, valid_loss_focal, valid_loss_dice, valid_mean_hd95))
 
-        save_interval = 40  # int(max_epoch/6)
-        if epoch_num > int(max_epoch / 2) and (epoch_num + 1) % save_interval == 0:
-        # if (epoch_num + 1) % save_interval == 0:
+        save_interval = 20  # int(max_epoch/6)
+        # if epoch_num > int(max_epoch / 2) and (epoch_num + 1) % save_interval == 0:
+        if (epoch_num + 1) % save_interval == 0:
             save_mode_path = os.path.join(snapshot_path, 'epoch_' + str(epoch_num) + '.pth')
             torch.save(model.state_dict(), save_mode_path)
             logging.info("save model to {}".format(save_mode_path))

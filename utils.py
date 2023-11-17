@@ -123,4 +123,5 @@ class MyFocalLoss(nn.Module):
         self.alpha = alpha
 
     def forward(self, inputs, targets):
-        output = torchvision.ops.sigmoid_focal_loss(inputs, targets, gamma=self.gamma, alpha=self.alpha)
+        output = torchvision.ops.sigmoid_focal_loss(
+            torch.argmax(torch.softmax(inputs, dim=1), dim=1, keepdim=False), targets, gamma=self.gamma, alpha=self.alpha)

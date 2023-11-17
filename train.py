@@ -50,7 +50,7 @@ args = parser.parse_args()
 if __name__ == "__main__":
     logging.basicConfig(format='%(asctime)s - %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s',
                         level=logging.DEBUG,
-                        filename= 'loss_ce.log',
+                        filename= 'loss_focal_dice.log',
                         filemode='a')
     if not args.deterministic:
         cudnn.benchmark = True

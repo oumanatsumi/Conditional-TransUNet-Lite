@@ -41,7 +41,7 @@ parser.add_argument('--max_iterations', type=int,
 parser.add_argument('--max_epochs', type=int,
                     default=150, help='maximum epoch number to train')
 parser.add_argument('--batch_size', type=int,
-                    default=4, help='batch_size per gpu')
+                    default=24, help='batch_size per gpu')
 parser.add_argument('--n_gpu', type=int, default=1, help='total gpu')
 parser.add_argument('--deterministic', type=int,  default=1,
                     help='whether use deterministic training')
@@ -73,8 +73,8 @@ if args.vit_name.find('R50') != -1:
 net = ViT_seg(config_vit, img_size=args.img_size, num_classes=config_vit.n_classes).cuda()
 # summary(net, input_size=(1,3,224,224))
 
-model_path = 'D:\learn\python\TransUNet_LiteProject\model\TU_TAVR224\TU_pretrain_R50-ViT-B_16_skip3_epo150_bs4_224'
-model_path += '\\epoch_149.pth'
+model_path = '../model/TU_TAVR224/TU_pretrain_R50-ViT-B_16_skip3_epo150_bs24_224_s231116lossexp_focal_dice/'
+model_path += 'epoch_1.pth'
 loaded = torch.load(model_path)
 del loaded['transformer.embeddings.feature_embeddings']
 net.load_state_dict(loaded, strict=False)
