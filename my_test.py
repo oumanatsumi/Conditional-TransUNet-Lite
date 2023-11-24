@@ -73,8 +73,8 @@ if args.vit_name.find('R50') != -1:
 net = ViT_seg(config_vit, img_size=args.img_size, num_classes=config_vit.n_classes).cuda()
 # summary(net, input_size=(1,3,224,224))
 
-model_path = '../model/TU_TAVR224/TU_pretrain_R50-ViT-B_16_skip3_epo150_bs24_224_s231116lossexp_focal_dice/'
-model_path += 'epoch_1.pth'
+model_path = 'C:\\Users\\Administrator\\OneDrive\\毕设\\实验数据\\experiment1\\'
+model_path += 'epoch_39.pth'
 loaded = torch.load(model_path)
 del loaded['transformer.embeddings.feature_embeddings']
 net.load_state_dict(loaded, strict=False)

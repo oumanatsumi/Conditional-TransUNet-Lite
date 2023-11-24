@@ -28,7 +28,7 @@ parser.add_argument('--max_iterations', type=int,
 parser.add_argument('--max_epochs', type=int,
                     default=150, help='maximum epoch number to train')
 parser.add_argument('--batch_size', type=int,
-                    default=24, help='batch_size per gpu')
+                    default=4, help='batch_size per gpu')
 parser.add_argument('--n_gpu', type=int, default=1, help='total gpu')
 parser.add_argument('--deterministic', type=int,  default=1,
                     help='whether use deterministic training')
@@ -50,7 +50,7 @@ args = parser.parse_args()
 if __name__ == "__main__":
     logging.basicConfig(format='%(asctime)s - %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s',
                         level=logging.DEBUG,
-                        filename= 'loss_focal_dice.log',
+                        filename= 'focaldice__beta_001.log',
                         filemode='a')
     if not args.deterministic:
         cudnn.benchmark = True
@@ -92,7 +92,7 @@ if __name__ == "__main__":
     snapshot_path = snapshot_path + '_lr' + str(args.base_lr) if args.base_lr != 0.01 else snapshot_path
     snapshot_path = snapshot_path + '_'+str(args.img_size)
     snapshot_path = snapshot_path + '_s'+str(args.seed) if args.seed!=1234 else snapshot_path
-    snapshot_path = snapshot_path + 'lossexp_wce_dice'
+    snapshot_path = snapshot_path + 'lossexp_beta001'
 
     if not os.path.exists(snapshot_path):
         os.makedirs(snapshot_path)

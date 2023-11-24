@@ -38,19 +38,19 @@ def trainer_synapse(args, model, snapshot_path):
     def worker_init_fn(worker_id):
         random.seed(args.seed + worker_id)
 
-    trainloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=8, pin_memory=True,
+    trainloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=0, pin_memory=True,
                              worker_init_fn=worker_init_fn)
-    validloader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, num_workers=8, pin_memory=True,
+    validloader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, num_workers=0, pin_memory=True,
                              worker_init_fn=worker_init_fn)
-    testloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=8, pin_memory=True,
+    testloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=0, pin_memory=True,
                              worker_init_fn=worker_init_fn)
 
     if args.n_gpu > 1:
         model = nn.DataParallel(model)
     model.train()
     alpha = 0.5
-    beta = 0.9
-    wce_weight = torch.from_numpy(np.array([700, 200000])).float().cuda()
+    beta = 0.01
+    wce_weight = torch.from_numpy(np.array([beta, 1-beta])).float().cuda()
     ce_loss = CrossEntropyLoss()
     wce_loss = CrossEntropyLoss(wce_weight)
     dice_loss = DiceLoss(num_classes)
@@ -62,7 +62,7 @@ def trainer_synapse(args, model, snapshot_path):
     max_iterations = args.max_epochs * len(trainloader)  # max_epoch = max_iterations // len(trainloader) + 1
     logging.info("{} iterations per epoch. {} max iterations ".format(len(trainloader), max_iterations))
     best_performance = 0.0
-
+    eps = 1e-4
     iterator = tqdm(range(max_epoch), ncols=70)
     for epoch_num in iterator:
         for i_batch, sampled_batch in enumerate(trainloader):
@@ -79,8 +79,8 @@ def trainer_synapse(args, model, snapshot_path):
             loss_wce = wce_loss(outputs, label_batch[:].long())
             loss_focal = focal_loss(outputs, label_batch[:].long())
             loss_dice = dice_loss(outputs, label_batch, softmax=True)
-            loss = alpha * loss_wce + (1-alpha) * loss_dice
-            # loss = loss_ce
+            loss = alpha * loss_focal + (1-alpha) * loss_dice
+            # loss = loss_dice
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -128,8 +128,8 @@ def trainer_synapse(args, model, snapshot_path):
                 valid_loss_wce += wce_loss(outputs, valid_label_batch[:].long()).item()
                 valid_loss_focal += focal_loss(outputs, valid_label_batch[:].long()).item()
                 valid_loss_dice += dice_loss(outputs, valid_label_batch, softmax=True).item()
-                valid_loss = alpha * valid_loss_wce + (1-alpha) * valid_loss_dice
-                # valid_loss = valid_loss_ce
+                valid_loss = alpha * valid_loss_focal + (1-alpha) * valid_loss_dice
+                #valid_loss = valid_loss_dice
                 ot = torch.argmax(torch.softmax(outputs, dim=1), dim=1, keepdim=False).cpu().detach().numpy()
                 vl = valid_label_batch.cpu().detach().numpy()
                 if ot.any() and vl.any():
@@ -189,7 +189,8 @@ def trainer_synapse(args, model, snapshot_path):
                 test_loss_wce += wce_loss(outputs, test_label_batch[:].long()).item()
                 test_loss_focal += focal_loss(outputs, test_label_batch[:].long()).item()
                 test_loss_dice += dice_loss(outputs, test_label_batch, softmax=True).item()
-                test_loss = alpha * test_loss_wce + (1-alpha) * test_loss_dice
+                test_loss = alpha * test_loss_focal + (1-alpha) * test_loss_dice
+                # test_loss = test_loss_dice
                 ot = torch.argmax(torch.softmax(outputs, dim=1), dim=1, keepdim=False).cpu().detach().numpy()
                 vl = test_label_batch.cpu().detach().numpy()
                 if ot.any() and vl.any():
@@ -204,12 +205,12 @@ def trainer_synapse(args, model, snapshot_path):
                 test_mean_hd95 = 99999.0
             else:
                 test_mean_hd95 /= test_cnt
-            writer.add_scalar('info/test_total_loss', test_loss, iter_num)
-            writer.add_scalar('info/test_loss_ce', test_loss_ce, iter_num)
-            writer.add_scalar('info/test_loss_wce', test_loss_wce, iter_num)
-            writer.add_scalar('info/test_loss_focal', test_loss_dice, iter_num)
-            writer.add_scalar('info/test_loss_dice', test_loss_dice, iter_num)
-            writer.add_scalar('info/test_mean_hd95', test_mean_hd95, iter_num)
+            # writer.add_scalar('info/test_total_loss', test_loss, iter_num)
+            # writer.add_scalar('info/test_loss_ce', test_loss_ce, iter_num)
+            # writer.add_scalar('info/test_loss_wce', test_loss_wce, iter_num)
+            # writer.add_scalar('info/test_loss_focal', test_loss_dice, iter_num)
+            # writer.add_scalar('info/test_loss_dice', test_loss_dice, iter_num)
+            # writer.add_scalar('info/test_mean_hd95', test_mean_hd95, iter_num)
             logging.info(
                 'TEST RESULT : test_loss : %f,  test_loss_ce: %f, test_loss_wce: %f,test_loss_focal: %f ,test_loss_dice: %f'
                 % (test_loss, test_loss_ce,test_loss_wce, test_loss_focal, test_loss_dice))
